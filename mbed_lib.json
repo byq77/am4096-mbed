@@ -1,0 +1,10 @@
+{
+    "name": "am4096-mbed",
+    "config": {
+        "logs": {
+            "help": "Print logs to STDIO",
+            "macro_name": "AM4096_LOGS",
+            "value": 0
+        }
+    }
+}
