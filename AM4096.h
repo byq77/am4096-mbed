@@ -1,6 +1,6 @@
 /** @file AM4096.h
  * AM4096 interface library for mbed framework
- * Copyright (C)  Szymon Szantula
+ * Copyright (C) 2019 Szymon Szantula
  *
  * Distributed under the MIT license.
  * For full terms see the file LICENSE.md.
