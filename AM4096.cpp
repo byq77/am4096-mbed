@@ -64,16 +64,20 @@ int AM4096::init()
 {
     if (_initialised)
         return 0;
-    _i2c->frequency(100000);
-    wait_ms(2); // POWER-UP
-    if (readReg(AM4096_REGISTER_CONFIG_DATA_ADDR, &_configuration.data[0]))
+    wait_ms(30); // POWER-UP
+    int attempts = 0;
+    AM_LOG("Connection attempt ...\r\n");
+    while (readReg(AM4096_REGISTER_CONFIG_DATA_ADDR, &_configuration.data[0]))
     {
-        if(findAM4096Device())
+        attempts += 1;
+        AM_LOG("Attempt %d failed...\r\n",attempts);
+        if(attempts == 3)
         {
-            AM_LOG("There is no device with this address!\r\nInitialisation failure!\r\n");
+            AM_LOG("There is no device with this address!\r\n");
             return 1;
         }
     }
+    AM_LOG("Connection succesfull ...\r\n");
     AM_LOG("Device addr: 0x%02X\r\n", _configuration.fields.Addr);
     
     
@@ -272,6 +276,6 @@ int AM4096::readOutputDataRegisters(AM4096_output_data * out_ptr)
     MBED_ASSERT(out_ptr);
     int status = 0;
     for(int i = 0; i < AM4096_REGISTER_MEAS_DATA_LEN; i++)
-        status = readReg(AM4096_REGISTER_MEAS_DATA_ADDR, &out_ptr->data[i]);
+        status = readReg(AM4096_REGISTER_MEAS_DATA_ADDR + i, &out_ptr->data[i]);
     return status;
 }
