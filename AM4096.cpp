@@ -1,6 +1,6 @@
 /** @file AM4096.cpp
  * AM4096 interface library for mbed framework
- * Copyright (C) 2019 Szymon Szantula
+ * Copyright (C)  Szymon Szantula
  *
  * Distributed under the MIT license.
  * For full terms see the file LICENSE.md.
@@ -65,6 +65,7 @@ int AM4096::init()
     if (_initialised)
         return 0;
     _i2c->frequency(100000);
+    wait_ms(2); // POWER-UP
     if (readReg(AM4096_REGISTER_CONFIG_DATA_ADDR, &_configuration.data[0]))
     {
         if(findAM4096Device())
@@ -86,7 +87,7 @@ int AM4096::init()
     for(int i=0; i<AM4096_CONFIG_DATA_LEN; i++)
         readReg(AM4096_EEPROM_CONFIG_DATA_ADDR+i, &_configuration.data[i]);
     
-    printAM4096Configuration(&this->_configuration);
+    printAM4096Configuration(&_configuration);
 
     _initialised = true;
     return 0;
@@ -95,20 +96,20 @@ int AM4096::init()
 int AM4096::readReg(uint8_t addr, uint16_t * reg)
 {
     char buffer[2];
-    int result = 0;
-    result += _i2c->write((int)_hw_addr<<1, (const char*)&addr, 1, 1);
+    int status = 0;
+    status += _i2c->write((int)_hw_addr<<1, (const char*)&addr, 1, true);
     if(addr <= 0x1F)
         wait_us(20); // EEPROM CLK stretching
-    result += _i2c->read((int)_hw_addr<<1, buffer,2,0);
+    status += _i2c->read((int)_hw_addr<<1, buffer,2,false);
     *reg = (uint16_t)((buffer[0] << 8) & 0xff00) | (uint16_t)buffer[1];
-    return result; 
+    return status; 
 }
 
 int AM4096::writeReg(uint8_t addr, uint16_t * reg)
 {
-    bool flag = !((addr < AM4096_EEPROM_CONFIG_DATA_ADDR + AM4096_CONFIG_DATA_LEN) ||
+    bool flag = !((addr < (AM4096_EEPROM_CONFIG_DATA_ADDR + AM4096_CONFIG_DATA_LEN)) ||
         ((addr >=AM4096_REGISTER_CONFIG_DATA_ADDR) && 
-        (addr < AM4096_REGISTER_CONFIG_DATA_ADDR + AM4096_CONFIG_DATA_LEN) ));
+        (addr < (AM4096_REGISTER_CONFIG_DATA_ADDR + AM4096_CONFIG_DATA_LEN) )));
     if(flag)
         return 1;
     
@@ -116,7 +117,10 @@ int AM4096::writeReg(uint8_t addr, uint16_t * reg)
     buffer[0] = addr; 
     buffer[1] = (*reg >> 8) & 0xFF; 
     buffer[2] = *reg & 0xFF;
-    return _i2c->write((int)_hw_addr<<1, (const char *)buffer, 3, 0); // wait ~ 20ms after writing to EEPROM 
+    int status = _i2c->write((int)_hw_addr<<1, (const char *)buffer, 3, false); // wait ~ 20ms after writing to EEPROM 
+    if(addr < (AM4096_EEPROM_CONFIG_DATA_ADDR + AM4096_CONFIG_DATA_LEN))
+        wait_ms(AM4096_EEPROM_WRITE_TIME+2);
+    return status;
 } 
 
 int AM4096::findAM4096Device()
@@ -125,7 +129,7 @@ int AM4096::findAM4096Device()
     AM_LOG("Starting searching procedure...\r\n");
     _hw_addr = AM4096_ADDR_FIRST;
 
-    while(found_flag && _hw_addr <= AM4096_ADDR_LAST)
+    while(found_flag && (_hw_addr <= AM4096_ADDR_LAST))
     {
         if(found_flag = readReg(AM4096_REGISTER_CONFIG_DATA_ADDR, &_configuration.data[0]))
         {
@@ -158,7 +162,6 @@ int AM4096::setNewHwAddr(uint8_t hw_addr)
     }
     _configuration.fields.Addr = hw_addr;
     int result = writeReg(AM4096_EEPROM_CONFIG_DATA_ADDR,&_configuration.data[0]);
-    wait_ms(20);
     if(result)
     {
         AM_LOG("Can't set new addres!\r\n");
@@ -178,7 +181,7 @@ void AM4096::getConfiguration(AM4096_config_data * conf_ptr)
 
 void AM4096::printAM4096Configuration(const AM4096_config_data * conf_ptr)
 {
-    if(conf_ptr = 0)
+    if(conf_ptr == 0)
         return;
     AM_LOG(
     CONFIG_STR,
@@ -207,7 +210,7 @@ void AM4096::printAM4096Configuration(const AM4096_config_data * conf_ptr)
 
 void AM4096::printAM4096OutputData(const AM4096_output_data * out_ptr)
 {
-    if(out_ptr = 0)
+    if(out_ptr == 0)
         return;
     AM_LOG(
         OUTPUT_STR,
@@ -223,24 +226,44 @@ void AM4096::printAM4096OutputData(const AM4096_output_data * out_ptr)
     );
 }
 
-int AM4096::updateConfiguration(const AM4096_config_data * conf_ptr, bool permament=false)
+int AM4096::updateConfiguration(const AM4096_config_data * conf_ptr, bool permament)
 {
     MBED_ASSERT(conf_ptr);
-    _configuration = *conf_ptr;
+
+    if(conf_ptr->fields.Addr != _configuration.fields.Addr)
+        return 1;
     int status = 0;
+    
+    for(int i=0;i<4;i++)
+    {
+        // check if already in memory
+        status += (_configuration.data[i] != conf_ptr->data[i] ? 1 : 0);
+    }
+
+    if(status==0 && permament)
+    {
+        AM_LOG("Configuration is identicall to the one in the EEPROM!\r\n");
+        return 0;
+    }
+
+    status = 0;
+    uint16_t buffer[4];
+    for(int i=0;i<4;i++) buffer[i] = conf_ptr->data[i];
     if(permament)
     {
         for (int i=0; i < AM4096_CONFIG_DATA_LEN; i++)
-        {
-            status += writeReg(AM4096_EEPROM_CONFIG_DATA_ADDR + 1, &_configuration.data[i]);
-            wait_ms(20);
-        }
+            status += writeReg(AM4096_EEPROM_CONFIG_DATA_ADDR + i, buffer+i);
     }
     else
     {
         for (int i = 0; i < AM4096_CONFIG_DATA_LEN; i++)
-            status += writeReg(AM4096_REGISTER_CONFIG_DATA_ADDR + i, &_configuration.data[i]);
+            status += writeReg(AM4096_REGISTER_CONFIG_DATA_ADDR + i, buffer+i);
     }
+    if(status!=AM4096_ERROR_NONE)
+        return status;
+    
+    for(int i=0;i<4;i++) _configuration.data[i] = buffer[i];
+    AM_LOG("Configuration succesfully written to memory!\r\n");
     return status;
 }
 

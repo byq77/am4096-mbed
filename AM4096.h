@@ -1,6 +1,6 @@
 /** @file AM4096.h
  * AM4096 interface library for mbed framework
- * Copyright (C) 2019 Szymon Szantula
+ * Copyright (C)  Szymon Szantula
  *
  * Distributed under the MIT license.
  * For full terms see the file LICENSE.md.
@@ -21,6 +21,7 @@
 #define AM4096_ADDR_FIRST                   0   ///< AM4096 default hw address and begining of device's address space (I2C) 
 #define AM4096_ADDR_LAST                    127 ///< end of device's address space (I2C)                 
 #define AM4096_ERROR_NONE                   0   ///< no error <==> success, non zero return code indicates error
+#define AM4096_EEPROM_WRITE_TIME            20  ///< EEPROM write time in ms
 
 /**
  * @brief AM4096 configuration data structure.
@@ -198,16 +199,28 @@ class AM4096
          */
         static void printAM4096OutputData(const AM4096_output_data * out_ptr);
 
+        /**
+         * @brief Write a 16bit word into AM4096 register/EEPROM.
+         * @param addr register address
+         * @param reg pointer to word
+         * @return AM4096_ERROR_NONE if success, non zero value on failures 
+         */
+        int readReg(uint8_t addr, uint16_t * reg);
+
+        /**
+         * @brief Read a 16bit word from AM4096 register/EEPROM.
+         * @param addr register address 
+         * @param reg pointer to word
+         * @return AM4096_ERROR_NONE if success, non zero value on failures 
+         */
+        int writeReg(uint8_t addr, uint16_t * reg); 
+    
     private:
         I2C * _i2c;
         uint8_t _hw_addr;
         uint32_t _device_id;
         bool _initialised;
         AM4096_config_data _configuration;
-
-    private:
-        int readReg(uint8_t addr, uint16_t * reg);
-        int writeReg(uint8_t addr, uint16_t * reg); 
 };
 
 #endif /* __AM4096_H__ */
