@@ -236,21 +236,23 @@ int AM4096::updateConfiguration(const AM4096_config_data * conf_ptr, bool permam
 
     if(conf_ptr->fields.Addr != _configuration.fields.Addr)
         return 1;
-    int status = 0;
     
-    for(int i=0;i<4;i++)
+    int status = 0;
+    if(permament)
     {
         // check if already in memory
-        status += (_configuration.data[i] != conf_ptr->data[i] ? 1 : 0);
+        for(int i=0;i<4;i++)
+        {
+            if(_configuration.data[i] == conf_ptr->data[i])
+                status++;
+        }
+        if(status == 4)
+        {
+            AM_LOG("Configuration is identical to the one in the EEPROM!\r\n");
+            return 0;
+        }
+        status = 0;
     }
-
-    if(status==0 && permament)
-    {
-        AM_LOG("Configuration is identicall to the one in the EEPROM!\r\n");
-        return 0;
-    }
-
-    status = 0;
     uint16_t buffer[4];
     for(int i=0;i<4;i++) buffer[i] = conf_ptr->data[i];
     if(permament)

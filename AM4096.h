@@ -157,7 +157,7 @@ class AM4096
         
         /**
          * @brief Set new device address.
-         * @param hw_address new address   
+         * @param hw_addr new address   
          * @return AM4096_ERROR_NONE if success, non zero value on failure
          */
         int setNewHwAddr(uint8_t hw_addr);
@@ -195,7 +195,7 @@ class AM4096
          * @brief Prints formatted table with measurement registers.
          *
          * Works only if AM4096_LOGS is defined and set to 1
-         * @param conf_ptr pointer to configuration to print out
+         * @param out_ptr pointer to configuration to print out
          */
         static void printAM4096OutputData(const AM4096_output_data * out_ptr);
 
